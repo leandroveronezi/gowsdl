@@ -177,9 +177,9 @@ type options struct {
 }
 
 var defaultOptions = options{
-	timeout:          time.Duration(30 * time.Second),
-	contimeout:       time.Duration(90 * time.Second),
-	tlshshaketimeout: time.Duration(15 * time.Second),
+	timeout:          time.Duration(60 * time.Second),
+	contimeout:       time.Duration(120 * time.Second),
+	tlshshaketimeout: time.Duration(45 * time.Second),
 }
 
 // A Option sets options such as credentials, tls, etc.
@@ -305,7 +305,7 @@ func (s *Client) call(ctx context.Context, soapAction string, request, response 
 
 			id := xid.New()
 
-			fo, err := os.Create("./storage/log/soapAction_" + id.String())
+			fo, err := os.Create("./storage/log/" + soapAction + "_" + id.String())
 			if err != nil {
 				fmt.Println(err)
 				return
