@@ -6,8 +6,13 @@ import (
 	"crypto/tls"
 	"encoding/xml"
 	"fmt"
+	"github.com/rs/xid"
+	"io"
+	"io/ioutil"
 	"net"
 	"net/http"
+	"os"
+	"strings"
 	"time"
 )
 
@@ -244,6 +249,7 @@ func WithMTOM() Option {
 
 // Client is soap client
 type Client struct {
+	Debug   bool
 	url     string
 	opts    *options
 	headers []interface{}
@@ -290,6 +296,31 @@ func (s *Client) Call(soapAction string, request, response interface{}) error {
 }
 
 func (s *Client) call(ctx context.Context, soapAction string, request, response interface{}) error {
+
+	var debug string = ""
+
+	if s.Debug {
+
+		defer func() {
+
+			id := xid.New()
+
+			fo, err := os.Create("./storage/log/soapAction_" + id.String())
+			if err != nil {
+				fmt.Println(err)
+				return
+			}
+			defer fo.Close()
+
+			_, err = io.Copy(fo, strings.NewReader(debug))
+			if err != nil {
+				fmt.Println(err)
+			}
+
+		}()
+
+	}
+
 	envelope := SOAPEnvelope{}
 
 	if s.headers != nil && len(s.headers) > 0 {
@@ -306,17 +337,24 @@ func (s *Client) call(ctx context.Context, soapAction string, request, response 
 	}
 
 	if err := encoder.Encode(envelope); err != nil {
+		debug += err.Error()
 		return err
 	}
 
 	if err := encoder.Flush(); err != nil {
+		debug += err.Error()
 		return err
 	}
 
+	debug += buffer.String() + "\n\n\n"
+
 	req, err := http.NewRequest("POST", s.url, buffer)
+
 	if err != nil {
+		debug += err.Error()
 		return err
 	}
+
 	if s.opts.auth != nil {
 		req.SetBasicAuth(s.opts.auth.Login, s.opts.auth.Password)
 	}
@@ -328,8 +366,9 @@ func (s *Client) call(ctx context.Context, soapAction string, request, response 
 	} else {
 		req.Header.Add("Content-Type", "text/xml; charset=\"utf-8\"")
 	}
+
 	req.Header.Add("SOAPAction", soapAction)
-	req.Header.Set("User-Agent", "gowsdl/0.1")
+	req.Header.Set("User-Agent", "gowsdl/0.2")
 	if s.opts.httpHeaders != nil {
 		for k, v := range s.opts.httpHeaders {
 			req.Header.Set(k, v)
@@ -351,9 +390,12 @@ func (s *Client) call(ctx context.Context, soapAction string, request, response 
 	}
 
 	res, err := client.Do(req)
+
 	if err != nil {
+		debug += err.Error()
 		return err
 	}
+
 	defer res.Body.Close()
 
 	respEnvelope := new(SOAPEnvelope)
@@ -361,8 +403,16 @@ func (s *Client) call(ctx context.Context, soapAction string, request, response 
 
 	mtomBoundary, err := getMtomHeader(res.Header.Get("Content-Type"))
 	if err != nil {
+		debug += err.Error()
 		return err
 	}
+
+	var bodyBytes []byte
+
+	bodyBytes, _ = ioutil.ReadAll(res.Body)
+	res.Body = ioutil.NopCloser(bytes.NewBuffer(bodyBytes))
+
+	debug += string(bodyBytes)
 
 	var dec SOAPDecoder
 	if mtomBoundary != "" {
@@ -372,6 +422,7 @@ func (s *Client) call(ctx context.Context, soapAction string, request, response 
 	}
 
 	if err := dec.Decode(respEnvelope); err != nil {
+		debug += err.Error()
 		return err
 	}
 
