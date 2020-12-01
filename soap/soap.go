@@ -6,7 +6,6 @@ import (
 	"crypto/tls"
 	"encoding/xml"
 	"fmt"
-	"github.com/rs/xid"
 	"io"
 	"io/ioutil"
 	"net"
@@ -15,6 +14,8 @@ import (
 	"os"
 	"strings"
 	"time"
+
+	"github.com/rs/xid"
 )
 
 type SOAPEncoder interface {
@@ -364,20 +365,6 @@ func (s *Client) call(ctx context.Context, soapAction string, request, response 
 		return err
 	}
 
-	if s.Debug {
-
-		dump, err := httputil.DumpRequest(req, false)
-
-		if err == nil {
-
-			debug = string(dump) +
-				"\n\n\n" +
-				debug
-
-		}
-
-	}
-
 	if s.opts.auth != nil {
 		req.SetBasicAuth(s.opts.auth.Login, s.opts.auth.Password)
 	}
@@ -420,6 +407,20 @@ func (s *Client) call(ctx context.Context, soapAction string, request, response 
 	}
 
 	defer res.Body.Close()
+
+	if s.Debug {
+
+		dump, err := httputil.DumpRequest(req, false)
+
+		if err == nil {
+
+			debug = string(dump) +
+				"\n\n\n" +
+				debug
+
+		}
+
+	}
 
 	respEnvelope := new(SOAPEnvelope)
 	respEnvelope.Body = SOAPBody{Content: response}
