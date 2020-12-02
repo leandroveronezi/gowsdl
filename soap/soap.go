@@ -436,6 +436,18 @@ func (s *Client) call(ctx context.Context, soapAction string, request, response 
 	bodyBytes, _ = ioutil.ReadAll(res.Body)
 	res.Body = ioutil.NopCloser(bytes.NewBuffer(bodyBytes))
 
+	if s.Debug {
+
+		dump, err := httputil.DumpResponse(res, false)
+
+		if err == nil {
+
+			debug += "\n\n" + string(dump) + "\n\n"
+
+		}
+
+	}
+
 	debug += string(bodyBytes)
 
 	var dec SOAPDecoder
